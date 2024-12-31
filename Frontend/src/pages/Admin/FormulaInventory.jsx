@@ -50,9 +50,24 @@ const FormulaInventory = () => {
     }
   };
 
+  // Fetch orders from the backend
+  const fetchOrders = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("http://localhost:5001/api/orders2");
+      const data = await response.json();
+      setOrders(data);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchItems();
     fetchFormulaBin(); // Fetch the formula bin when component mounts
+    fetchOrders(); // Fetch the orders from the backend
   }, []);
 
   // Function to handle formula selection
@@ -65,7 +80,7 @@ const FormulaInventory = () => {
   };
 
   // Function to handle order submission and inventory update
-  const handleOrderSubmission = () => {
+  const handleOrderSubmission = async () => {
     if (
       !selectedFormula ||
       !shift ||
@@ -91,25 +106,45 @@ const FormulaInventory = () => {
       selectedFormulaId: selectedFormula._id, // Store the formula ID with the order
     };
 
-    // Add order to the orders list
-    setOrders((prevOrders) => [...prevOrders, orderDetails]);
+    // POST request to save the order in the backend
+    try {
+      const response = await fetch("http://localhost:5001/api/orders2", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(orderDetails),
+      });
 
-    // After order submission, update the inventory
-    const updatedFormulaBin = [...formulaBin];
-    selectedFormula.ingredients.forEach((ingredient) => {
-      const totalMaterialUsed = ingredient.consumption * numberOfBatches;
+      const newOrder = await response.json();
+      if (response.ok) {
+        // Add the new order to the orders list
+        setOrders((prevOrders) => [...prevOrders, newOrder]);
+        alert("Order submitted successfully!");
 
-      // Update formula bin
-      const formulaIndex = updatedFormulaBin.findIndex(
-        (formula) => formula._id === selectedFormula._id
-      );
-      if (formulaIndex !== -1) {
-        updatedFormulaBin[formulaIndex].totalQuantity -= totalMaterialUsed;
+        // Update inventory (formula bin)
+        const updatedFormulaBin = [...formulaBin];
+        selectedFormula.ingredients.forEach((ingredient) => {
+          const totalMaterialUsed = ingredient.consumption * numberOfBatches;
+
+          // Update formula bin
+          const formulaIndex = updatedFormulaBin.findIndex(
+            (formula) => formula._id === selectedFormula._id
+          );
+          if (formulaIndex !== -1) {
+            updatedFormulaBin[formulaIndex].totalQuantity -= totalMaterialUsed;
+          }
+        });
+
+        // Update the state
+        setFormulaBin(updatedFormulaBin);
+      } else {
+        alert("Failed to submit order");
       }
-    });
-
-    // Update the state
-    setFormulaBin(updatedFormulaBin);
+    } catch (error) {
+      console.error("Error submitting order:", error);
+      alert("Error submitting order");
+    }
   };
 
   if (loading) return <div>Loading...</div>;
@@ -178,10 +213,12 @@ const FormulaInventory = () => {
       </div>
 
       {/* User Inputs */}
+
       <div className="user-inputs mb-8 text-center">
         <div>
           <input
             type="text"
+            name="shift"
             value={shift}
             onChange={(e) => setShift(e.target.value)}
             className="px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -189,6 +226,7 @@ const FormulaInventory = () => {
           />
           <input
             type="text"
+            name="orderNo"
             value={orderNo}
             onChange={(e) => setOrderNo(e.target.value)}
             className="ml-4 px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -198,6 +236,7 @@ const FormulaInventory = () => {
         <div className="mt-4">
           <input
             type="text"
+            name="machineNo"
             value={machineNo}
             onChange={(e) => setMachineNo(e.target.value)}
             className="px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -205,6 +244,7 @@ const FormulaInventory = () => {
           />
           <input
             type="text"
+            name="operator"
             value={operator}
             onChange={(e) => setOperator(e.target.value)}
             className="ml-4 px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -214,6 +254,7 @@ const FormulaInventory = () => {
         <div className="mt-4">
           <input
             type="text"
+            name="batchNo"
             value={batchNo}
             onChange={(e) => setBatchNo(e.target.value)}
             className="px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -221,6 +262,7 @@ const FormulaInventory = () => {
           />
           <textarea
             value={remarks}
+            name="remarks"
             onChange={(e) => setRemarks(e.target.value)}
             className="ml-4 px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500"
             placeholder="Remarks"
@@ -229,6 +271,7 @@ const FormulaInventory = () => {
         <div className="mt-4">
           <input
             type="number"
+            name="batchWeight"
             value={batchWeight}
             readOnly
             className="px-4 py-2 rounded-md border border-gray-300 focus:outline-none"
@@ -236,6 +279,7 @@ const FormulaInventory = () => {
           />
           <input
             type="number"
+            name="numberOfBatches"
             value={numberOfBatches}
             onChange={(e) => setNumberOfBatches(Number(e.target.value))}
             className="ml-4 px-4 py-2 rounded-md border border-gray-300 focus:outline-none"
@@ -252,6 +296,37 @@ const FormulaInventory = () => {
         >
           Submit Order
         </button>
+      </div>
+
+      {/* Orders Table */}
+      <div className="orders-table mt-8">
+        <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">
+          Order List
+        </h3>
+        <table className="w-full text-left table-auto">
+          <thead>
+            <tr className="bg-gray-200">
+              <th className="px-4 py-2">Order No.</th>
+              <th className="px-4 py-2">Shift</th>
+              <th className="px-4 py-2">Batch No.</th>
+              <th className="px-4 py-2">Batch Weight (kg)</th>
+              <th className="px-4 py-2">Number of Batches</th>
+              <th className="px-4 py-2">Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map((order, index) => (
+              <tr key={index} className="border-b">
+                <td className="px-4 py-2">{order.orderNo}</td>
+                <td className="px-4 py-2">{order.shift}</td>
+                <td className="px-4 py-2">{order.batchNo}</td>
+                <td className="px-4 py-2">{order.batchWeight}</td>
+                <td className="px-4 py-2">{order.numberOfBatches}</td>
+                <td className="px-4 py-2">{order.remarks}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

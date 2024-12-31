@@ -22,6 +22,7 @@ import "./App.css";
 import { CustomKanban } from "./pages/Admin/Kanboard";
 import InventoryLogging from "./pages/Admin/InventoryLogging";
 import FormulaInventory from "./pages/Admin/FormulaInventory";
+import ProductBin from "./pages/Admin/ProductBin";
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requiredRole, user }) => {
@@ -102,6 +103,7 @@ const App = () => {
                 path="/admin/formulaInventory"
                 element={<FormulaInventory />}
               />
+              <Route path="/admin/productBin" element={<ProductBin />} />
 
               {/* Catch-all Route */}
               <Route path="*" element={<Navigate to="/" replace />} />

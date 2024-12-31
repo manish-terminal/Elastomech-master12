@@ -6,10 +6,12 @@ import cors from "cors";
 import connectDB from "./database/connect.js";
 import Inventory from "./models/inventoryModal.js";
 import Formula from "./models/formulaModal.js";
+import Product from "./models/productModal.js"; // Add the Product model
 import orderRoutes from "./router/orderRouter.js";
 import itemRoutes from "./router/inventory.js";
 import dispatchRoutes from "./router/dispatch.js";
 import authRouter from "./router/login.js";
+import inventoryRoutes from "./router/inventoryOrder.js";
 
 const app = express();
 const __dirname = path.resolve();
@@ -34,6 +36,7 @@ app.get("/", (req, res) => res.send("Hello World!"));
 app.use("/api/orders", orderRoutes);
 app.use("/api/items", itemRoutes);
 app.use("/api/auth", authRouter);
+app.use("/api", inventoryRoutes);
 app.use(dispatchRoutes);
 
 // Error handler middleware
@@ -41,6 +44,8 @@ app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ message: "Internal server error" });
 });
+
+// Existing Routes
 
 // Get all materials
 app.get("/api/materials", async (req, res) => {
@@ -212,6 +217,97 @@ app.delete("/api/formulas/:id", async (req, res) => {
     }
   } catch (err) {
     res.status(500).json({ message: "Error deleting formula", error: err });
+  }
+});
+
+// New Product Routes
+
+// Add a new product with formulations and their fill weights
+app.post("/api/products", async (req, res) => {
+  const {
+    articleName,
+    image,
+    articleNo,
+    mouldingTemp,
+    formulations,
+    mouldNo,
+    noOfCavity,
+    cycleTime,
+    expectedCycles,
+    noOfLabours,
+    hardness,
+    lastUpdated,
+  } = req.body;
+
+  // Validation
+  if (
+    !articleName ||
+    !articleNo ||
+    !mouldingTemp ||
+    !formulations.length ||
+    !mouldNo ||
+    !noOfCavity ||
+    !cycleTime ||
+    !expectedCycles ||
+    !noOfLabours ||
+    !hardness ||
+    !lastUpdated
+  ) {
+    return res
+      .status(400)
+      .json({ message: "Please fill all required fields." });
+  }
+
+  try {
+    // Add new product
+    const newProduct = new Product({
+      articleName,
+      image,
+      articleNo,
+      mouldingTemp,
+      formulations,
+      mouldNo,
+      noOfCavity,
+      cycleTime,
+      expectedCycles,
+      noOfLabours,
+      hardness,
+      lastUpdated,
+    });
+
+    await newProduct.save();
+    res
+      .status(201)
+      .json({ message: "Product added successfully", product: newProduct });
+  } catch (err) {
+    res.status(500).json({ message: "Error adding product", error: err });
+  }
+});
+
+// Get all products
+app.get("/api/products", async (req, res) => {
+  try {
+    const products = await Product.find().populate("formulations.formulaId"); // Populate formula data
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ message: "Error retrieving products", error: err });
+  }
+});
+
+// Get a single product
+app.get("/api/products/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const product = await Product.findById(id).populate(
+      "formulations.formulaId"
+    ); // Populate formula data
+    if (product) {
+      res.json(product);
+    } else {
+      res.status(404).json({ message: "Product not found" });
+    }
+  } catch (err) {
+    res.status(500).json({ message: "Error retrieving product", error: err });
   }
 });
 
